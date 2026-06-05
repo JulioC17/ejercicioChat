@@ -11,7 +11,7 @@ async function initSupabase() {
     // Configuración dinámica del backend: usa local en dev, o tu URL de Render en producción
     const backendUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       ? ''
-      : 'https://TU-BACKEND-RENDER.onrender.com'; // <-- REEMPLAZAR CON TU URL DE RENDER REAL
+      : 'https://ejerciciochat.onrender.com'; // <-- URL real del servicio backend en Render
     
     const response = await fetch(`${backendUrl}/api/config`);
     if (!response.ok) throw new Error("No se pudo obtener la configuración del servidor.");
