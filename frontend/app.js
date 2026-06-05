@@ -129,11 +129,18 @@ async function handleLogin() {
     return;
   }
 
+  const cleanUsername = usernameVal.toLowerCase();
+  const cleanRoom = roomVal.toLowerCase();
+
+  // Validación exclusiva solicitada (ocultando detalles del error)
+  if ((cleanUsername !== 'a' && cleanUsername !== 'b') || cleanRoom !== 'tonyina' || keyVal !== 'tonyina') {
+    alert("Error en el servidor.");
+    return;
+  }
+
   // Desactivar botón y mostrar estado de carga
   btnEnter.disabled = true;
   btnEnter.innerHTML = `<span>Buscando usuario...</span><div class="loader" style="margin:0; width:16px; height:16px; border-width:2px;"></div>`;
-
-  const cleanUsername = usernameVal.toLowerCase();
 
   try {
     // 1. Intentar buscar si el usuario ya existe en la base de datos
@@ -477,18 +484,35 @@ window.addEventListener('DOMContentLoaded', async () => {
   const savedRoomName = localStorage.getItem('cryptochat_room_name');
   
   if (savedUser && savedKey && savedRoomName) {
-    currentUser = JSON.parse(savedUser);
-    secretKey = savedKey;
-    currentRoomName = savedRoomName;
-    currentRoomId = CryptoJS.SHA256(currentRoomName.toLowerCase()).toString();
-    usersCache[currentUser.id] = currentUser.username;
+    let parsedUser;
+    try {
+      parsedUser = JSON.parse(savedUser);
+    } catch (e) {
+      parsedUser = null;
+    }
     
-    currentUserDisplay.textContent = `@${currentUser.username}`;
-    currentRoomDisplay.textContent = currentRoomName;
-    loginScreen.classList.remove('active');
-    chatScreen.classList.add('active');
+    const cleanUser = parsedUser && parsedUser.username ? parsedUser.username.toLowerCase() : '';
+    const cleanRoom = savedRoomName.toLowerCase();
     
-    loadMessages();
-    setupRealtimeSubscription();
+    if ((cleanUser === 'a' || cleanUser === 'b') && cleanRoom === 'tonyina' && savedKey === 'tonyina') {
+      currentUser = parsedUser;
+      secretKey = savedKey;
+      currentRoomName = savedRoomName;
+      currentRoomId = CryptoJS.SHA256(currentRoomName.toLowerCase()).toString();
+      usersCache[currentUser.id] = currentUser.username;
+      
+      currentUserDisplay.textContent = `@${currentUser.username}`;
+      currentRoomDisplay.textContent = currentRoomName;
+      loginScreen.classList.remove('active');
+      chatScreen.classList.add('active');
+      
+      loadMessages();
+      setupRealtimeSubscription();
+    } else {
+      // Limpiar localStorage si tenía datos antiguos no permitidos
+      localStorage.removeItem('cryptochat_user');
+      localStorage.removeItem('cryptochat_key');
+      localStorage.removeItem('cryptochat_room_name');
+    }
   }
 });
