@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Un chat móvil seguro con cifrado de extremo a extremo, impulsado por Supabase.">
+  <title>CryptoChat Móvil</title>
+  <!-- Google Fonts para tipografía premium -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons para iconos modernos -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Supabase JS Client -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <!-- CryptoJS para cifrado/descifrado simétrico AES -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <!-- Estilos -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Contenedor Principal (Simula un dispositivo móvil) -->
+  <div class="mobile-container">
+    
+    <!-- PANTALLA 1: Acceso / Login -->
+    <div id="login-screen" class="screen active">
+      <div class="login-header">
+        <div class="logo-icon">
+          <i data-lucide="shield-alert" class="icon-glow"></i>
+        </div>
+        <h1>CryptoChat</h1>
+        <p>Chat privado con cifrado local de extremo a extremo</p>
+      </div>
+
+      <div class="login-form">
+        <div class="input-group">
+          <label for="username-input">Tu Nombre / Apodo</label>
+          <div class="input-wrapper">
+            <i data-lucide="user"></i>
+            <input type="text" id="username-input" placeholder="Ej. Julio, JulioCS..." autocomplete="off">
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="room-input">Nombre de la Sala</label>
+          <div class="input-wrapper">
+            <i data-lucide="hash"></i>
+            <input type="text" id="room-input" placeholder="Ej. sala-secreta-julio" autocomplete="off">
+          </div>
+          <span class="input-helper">Solo los usuarios que pongan este mismo nombre de sala compartirán el chat.</span>
+        </div>
+
+        <div class="input-group">
+          <label for="secret-key-input">Clave de Descifrado de la Sala</label>
+          <div class="input-wrapper">
+            <i data-lucide="key-round"></i>
+            <input type="password" id="secret-key-input" placeholder="La clave secreta para descifrar">
+            <button type="button" id="toggle-key-visibility" class="btn-text-input">
+              Mostrar
+            </button>
+          </div>
+          <span class="input-helper">Los mensajes se guardan cifrados en Supabase. Si alguien no tiene esta clave, solo verá basura.</span>
+        </div>
+
+        <button id="btn-enter" class="btn-primary">
+          <span>Entrar al Chat</span>
+          <i data-lucide="arrow-right"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- PANTALLA 2: Chat en Tiempo Real -->
+    <div id="chat-screen" class="screen">
+      <!-- Cabecera del Chat -->
+      <header class="chat-header">
+        <div class="user-info">
+          <div class="avatar">
+            <i data-lucide="user"></i>
+          </div>
+          <div>
+            <h2 id="current-user-display">Usuario</h2>
+            <span class="status-online">
+              <span class="dot"></span> En línea | <span id="current-room-display" style="font-weight:600; color:#fff; margin-left:4px;">Sala</span>
+            </span>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button id="btn-show-key" class="btn-icon" title="Ver Clave Actual">
+            <i data-lucide="lock"></i>
+          </button>
+          <button id="btn-logout" class="btn-icon" title="Salir">
+            <i data-lucide="log-out"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- Panel de Mensajes -->
+      <div id="messages-container" class="messages-container">
+        <!-- Los mensajes se cargarán dinámicamente aquí -->
+        <div class="welcome-box">
+          <i data-lucide="lock" class="welcome-icon"></i>
+          <h3>Chat Cifrado Activado</h3>
+          <p>Todos los mensajes están cifrados localmente usando AES. Los datos en la base de datos de Supabase son completamente indescifrables sin tu clave.</p>
+        </div>
+      </div>
+
+      <!-- Barra de Envío de Mensajes -->
+      <footer class="chat-input-bar">
+        <input type="text" id="message-input" placeholder="Escribe un mensaje cifrado..." autocomplete="off">
+        <button id="btn-send" class="btn-send">
+          <i data-lucide="send"></i>
+        </button>
+      </footer>
+    </div>
+
+  </div>
+
+  <!-- Modal para ver la Clave actual -->
+  <div id="key-modal" class="modal">
+    <div class="modal-content">
+      <h3>Seguridad del Chat</h3>
+      <p>Clave de cifrado activa en tu dispositivo:</p>
+      <div class="key-display-box">
+        <code id="active-key-display">******</code>
+        <button id="btn-copy-key" class="btn-icon">
+          <i data-lucide="copy"></i>
+        </button>
+      </div>
+      <p class="modal-note">Cualquier mensaje en la base de datos que no haya sido cifrado con esta clave exacta se verá como texto cifrado ilegible.</p>
+      <button id="btn-close-modal" class="btn-primary-small">Cerrar</button>
+    </div>
+  </div>
+
+
+  <!-- Script Principal -->
+  <script src="app.js?v=5"></script>
+</body>
+</html>
