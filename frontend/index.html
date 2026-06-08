@@ -107,6 +107,10 @@
 
       <!-- Barra de Envío de Mensajes -->
       <footer class="chat-input-bar">
+        <button id="btn-attach" class="btn-attach" title="Enviar foto temporal">
+          <i data-lucide="camera"></i>
+        </button>
+        <input type="file" id="image-input" accept="image/*" style="display: none;">
         <input type="text" id="message-input" placeholder="Escribe un mensaje cifrado..." autocomplete="off">
         <button id="btn-send" class="btn-send">
           <i data-lucide="send"></i>
@@ -129,6 +133,39 @@
       </div>
       <p class="modal-note">Cualquier mensaje en la base de datos que no haya sido cifrado con esta clave exacta se verá como texto cifrado ilegible.</p>
       <button id="btn-close-modal" class="btn-primary-small">Cerrar</button>
+    </div>
+  </div>
+
+  <!-- Modal para visualizar fotos temporales -->
+  <div id="image-modal" class="modal">
+    <div class="image-modal-content">
+      <h3>Foto Temporal Recibida</h3>
+      <div class="image-container">
+        <img id="modal-image-view" src="" alt="Foto temporal">
+      </div>
+      <p class="image-modal-warning">⚠️ Esta foto se autodestruirá al cerrar esta ventana.</p>
+      <button id="btn-close-image-modal" class="btn-primary" style="margin-top: 0; width: 100%;">Cerrar y Destruir</button>
+    </div>
+  </div>
+
+  <!-- Modal de confirmación para salir -->
+  <div id="logout-confirm-modal" class="modal">
+    <div class="modal-content">
+      <h3>¿Salir del Chat?</h3>
+      <p>¿Seguro que quieres salir del chat? Se borrarán tus datos de sesión local.</p>
+      <div style="display: flex; gap: 0.8rem; justify-content: center; margin-top: 1.2rem;">
+        <button id="btn-confirm-logout-cancel" class="btn-primary-small" style="background: rgba(255,255,255,0.04); border: 1px solid var(--panel-border); color: var(--text-muted); padding: 0.7rem 1.2rem; margin-top: 0;">Cancelar</button>
+        <button id="btn-confirm-logout-ok" class="btn-primary-small" style="background: #ef4444; border: none; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3); padding: 0.7rem 1.5rem; margin-top: 0;">Salir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Alerta Personalizado -->
+  <div id="alert-modal" class="modal">
+    <div class="modal-content">
+      <h3 id="alert-title">Aviso</h3>
+      <p id="alert-message" style="margin-top: 0.5rem; line-height: 1.4; color: var(--text-muted);"></p>
+      <button id="btn-close-alert" class="btn-primary" style="margin-top: 1.2rem; width: 100%;">Aceptar</button>
     </div>
   </div>
 

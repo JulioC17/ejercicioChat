@@ -65,6 +65,43 @@ const activeKeyDisplay = document.getElementById('active-key-display');
 const btnCloseModal = document.getElementById('btn-close-modal');
 const btnCopyKey = document.getElementById('btn-copy-key');
 
+// Botones de Imagen y Modal de Imagen
+const btnAttach = document.getElementById('btn-attach');
+const imageInput = document.getElementById('image-input');
+const imageModal = document.getElementById('image-modal');
+const modalImageView = document.getElementById('modal-image-view');
+const btnCloseImageModal = document.getElementById('btn-close-image-modal');
+
+// Modal de Confirmación de Salida
+const logoutConfirmModal = document.getElementById('logout-confirm-modal');
+const btnConfirmLogoutCancel = document.getElementById('btn-confirm-logout-cancel');
+const btnConfirmLogoutOk = document.getElementById('btn-confirm-logout-ok');
+
+// Modal de Alerta
+const alertModal = document.getElementById('alert-modal');
+const alertTitle = document.getElementById('alert-title');
+const alertMessage = document.getElementById('alert-message');
+const btnCloseAlert = document.getElementById('btn-close-alert');
+
+let alertResolve = null;
+
+function customAlert(message, title = "Aviso") {
+  return new Promise((resolve) => {
+    alertTitle.textContent = title;
+    alertMessage.textContent = message;
+    alertModal.classList.add('active');
+    alertResolve = resolve;
+  });
+}
+
+btnCloseAlert.addEventListener('click', () => {
+  alertModal.classList.remove('active');
+  if (alertResolve) {
+    alertResolve();
+    alertResolve = null;
+  }
+});
+
 // ==========================================
 // FUNCIONES DE CIFRADO (AES)
 // ==========================================
@@ -109,24 +146,24 @@ async function handleLogin() {
 
   // Validaciones básicas
   if (!supabaseClient) {
-    alert("Error: No se pudo conectar con el servidor o las credenciales en el archivo .env son incorrectas.");
+    customAlert("Error: No se pudo conectar con el servidor o las credenciales en el archivo .env son incorrectas.");
     return;
   }
 
   if (!usernameVal) {
-    alert("Por favor, introduce tu nombre o apodo.");
+    customAlert("Por favor, introduce tu nombre o apodo.");
     usernameInput.focus();
     return;
   }
 
   if (!roomVal) {
-    alert("Por favor, introduce el nombre de la sala.");
+    customAlert("Por favor, introduce el nombre de la sala.");
     roomInput.focus();
     return;
   }
 
   if (!keyVal) {
-    alert("Por favor, introduce la clave secreta de la sala.");
+    customAlert("Por favor, introduce la clave secreta de la sala.");
     secretKeyInput.focus();
     return;
   }
@@ -146,19 +183,13 @@ async function handleLogin() {
     });
 
     if (!loginResponse.ok) {
-      alert("Error en el servidor.");
+      customAlert("Error en el servidor.");
       return;
     }
-  } catch (err) {
-    console.error("Error de red al validar sesión:", err);
-    alert("Error al conectar con el servidor.");
-    return;
-  }
 
-  // Mostrar estado de carga para buscar el usuario en la BD
-  btnEnter.innerHTML = `<span>Buscando usuario...</span><div class="loader" style="margin:0; width:16px; height:16px; border-width:2px;"></div>`;
+    // Mostrar estado de carga para buscar el usuario en la BD
+    btnEnter.innerHTML = `<span>Buscando usuario...</span><div class="loader" style="margin:0; width:16px; height:16px; border-width:2px;"></div>`;
 
-  try {
     // 1. Intentar buscar si el usuario ya existe en la base de datos
     let { data: user, error } = await supabaseClient
       .from('usuarios')
@@ -205,7 +236,7 @@ async function handleLogin() {
 
   } catch (error) {
     console.error("Error al iniciar sesión:", error);
-    alert("Error al conectar con la base de datos: " + error.message);
+    customAlert("Error al conectar con la base de datos: " + error.message);
   } finally {
     // Restaurar botón
     btnEnter.disabled = false;
@@ -286,6 +317,7 @@ function appendMessageToDOM(msg) {
   
   // Crear elementos
   const messageRow = document.createElement('div');
+  messageRow.id = `msg-${msg.id}`; // Asignar ID único para manejo en tiempo real
   messageRow.classList.add('message-row');
   messageRow.classList.add(isSentByMe ? 'sent' : 'received');
 
@@ -297,15 +329,59 @@ function appendMessageToDOM(msg) {
   const timeString = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   if (isDecryptionSuccessful) {
-    messageRow.innerHTML = `
-      <span class="message-sender">${isSentByMe ? 'Tú' : '@' + senderName}</span>
-      <div class="message-bubble">
-        <span class="msg-text"></span>
-        <span class="message-time">${timeString}</span>
-      </div>
-    `;
-    // Asignar el texto de forma segura usando textContent para evitar ataques XSS
-    messageRow.querySelector('.msg-text').textContent = decryptedContent;
+    // Verificar si es una foto temporal o destruida
+    let isJson = false;
+    let payload = null;
+    try {
+      payload = JSON.parse(decryptedContent);
+      if (payload && (payload.type === 'view-once-image' || payload.type === 'view-once-image-destroyed')) {
+        isJson = true;
+      }
+    } catch (e) {
+      // Es texto normal
+    }
+
+    if (isJson && payload) {
+      if (payload.type === 'view-once-image') {
+        messageRow.innerHTML = `
+          <span class="message-sender">${isSentByMe ? 'Tú' : '@' + senderName}</span>
+          <div class="message-bubble temp-image-bubble">
+            <div class="temp-image-text">
+              <i data-lucide="camera" class="temp-image-icon"></i>
+              <span>Foto Temporal</span>
+            </div>
+            <span class="temp-image-sub">Toca para abrir</span>
+            <span class="message-time">${timeString}</span>
+          </div>
+        `;
+        
+        const bubble = messageRow.querySelector('.temp-image-bubble');
+        bubble.addEventListener('click', () => {
+          openTempImage(msg.id, payload.url, payload.public_id);
+        });
+      } else if (payload.type === 'view-once-image-destroyed') {
+        messageRow.innerHTML = `
+          <span class="message-sender">${isSentByMe ? 'Tú' : '@' + senderName}</span>
+          <div class="message-bubble destroyed-photo-bubble">
+            <div class="temp-image-text">
+              <i data-lucide="eye-off" class="temp-image-icon"></i>
+              <span>🚫 Foto abierta y destruida</span>
+            </div>
+            <span class="message-time">${timeString}</span>
+          </div>
+        `;
+      }
+    } else {
+      messageRow.innerHTML = `
+        <span class="message-sender">${isSentByMe ? 'Tú' : '@' + senderName}</span>
+        <div class="message-bubble">
+          <span class="msg-text"></span>
+          <span class="message-time">${timeString}</span>
+        </div>
+      `;
+      // Asignar el texto de forma segura usando textContent para evitar ataques XSS
+      messageRow.querySelector('.msg-text').textContent = decryptedContent;
+    }
   } else {
     // Si falla el descifrado, mostramos el error y el texto cifrado original
     messageRow.classList.add('decryption-error');
@@ -349,7 +425,132 @@ async function sendMessage() {
 
   } catch (error) {
     console.error("Error al enviar mensaje:", error);
-    alert("Error al enviar: " + error.message);
+    customAlert("Error al enviar: " + error.message);
+  }
+}
+
+// ==========================================
+// FOTOS TEMPORALES (CLOUDINARY)
+// ==========================================
+
+async function handleImageUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  // Validar tamaño máximo a 30MB
+  if (file.size > 30 * 1024 * 1024) {
+    customAlert("La foto es demasiado grande. El límite es de 30 MB.");
+    imageInput.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const base64Image = reader.result;
+
+    // Deshabilitar entrada mientras sube
+    btnAttach.disabled = true;
+    btnSend.disabled = true;
+    messageInput.disabled = true;
+    const oldPlaceholder = messageInput.placeholder;
+    messageInput.placeholder = "Subiendo y cifrando foto...";
+    messageInput.value = "Enviando imagen temporal...";
+
+    try {
+      const backendUrl = getBackendUrl();
+      const response = await fetch(`${backendUrl}/api/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64Image })
+      });
+
+      if (!response.ok) throw new Error("Error en la subida al servidor.");
+      const data = await response.json();
+
+      // Cifrar localmente los metadatos de la imagen antes de enviar a Supabase
+      const payload = {
+        type: "view-once-image",
+        url: data.url,
+        public_id: data.public_id
+      };
+      const encryptedPayload = encryptText(JSON.stringify(payload), secretKey);
+
+      const { error } = await supabaseClient
+        .from('mensajes')
+        .insert([
+          {
+            contenido: encryptedPayload,
+            usuario_id: currentUser.id,
+            room_id: currentRoomId
+          }
+        ]);
+
+      if (error) throw error;
+
+    } catch (error) {
+      console.error("Error al enviar foto:", error);
+      customAlert("No se pudo enviar la foto: " + error.message);
+    } finally {
+      btnAttach.disabled = false;
+      btnSend.disabled = false;
+      messageInput.disabled = false;
+      messageInput.placeholder = oldPlaceholder;
+      messageInput.value = '';
+      imageInput.value = '';
+    }
+  };
+
+  reader.onerror = (error) => {
+    console.error("Error al leer archivo:", error);
+    customAlert("Error al leer la foto.");
+  };
+
+  reader.readAsDataURL(file);
+}
+
+async function openTempImage(messageId, imageUrl, publicId) {
+  modalImageView.src = imageUrl;
+  imageModal.classList.add('active');
+
+  // Actualizar la interfaz local de inmediato para que sea instantáneo para el que la abre
+  const msgEl = document.getElementById(`msg-${messageId}`);
+  if (msgEl) {
+    const bubble = msgEl.querySelector('.temp-image-bubble');
+    if (bubble) {
+      bubble.classList.add('destroyed-photo-bubble');
+      const textEl = bubble.querySelector('.temp-image-text');
+      if (textEl) {
+        textEl.innerHTML = `
+          <i data-lucide="eye-off" class="temp-image-icon"></i>
+          <span>🚫 Foto abierta y destruida</span>
+        `;
+      }
+      const subEl = bubble.querySelector('.temp-image-sub');
+      if (subEl) subEl.remove();
+      lucide.createIcons();
+    }
+  }
+
+  try {
+    // Sobrescribir en la base de datos para borrar la URL de Cloudinary de Supabase
+    const payload = { type: "view-once-image-destroyed" };
+    const encryptedPayload = encryptText(JSON.stringify(payload), secretKey);
+
+    await supabaseClient
+      .from('mensajes')
+      .update({ contenido: encryptedPayload })
+      .eq('id', messageId);
+
+    // Notificar al backend para eliminar de Cloudinary
+    const backendUrl = getBackendUrl();
+    await fetch(`${backendUrl}/api/delete-image`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ public_id: publicId })
+    });
+
+  } catch (error) {
+    console.error("Error al autodestruir la imagen:", error);
   }
 }
 
@@ -358,7 +559,6 @@ async function sendMessage() {
 // ==========================================
 
 function setupRealtimeSubscription() {
-  // Cancelar suscripción previa si existe
   if (messageSubscription) {
     supabaseClient.removeChannel(messageSubscription);
   }
@@ -368,35 +568,71 @@ function setupRealtimeSubscription() {
     .on(
       'postgres_changes',
       { 
-        event: 'INSERT', 
+        event: '*', // Escuchar todo (INSERT, DELETE, UPDATE)
         schema: 'public', 
         table: 'mensajes',
         filter: `room_id=eq.${currentRoomId}` 
       },
       async (payload) => {
-        const newMsg = payload.new;
+        if (payload.eventType === 'INSERT') {
+          const newMsg = payload.new;
 
-        // Comprobar si conocemos el nombre del remitente
-        if (!usersCache[newMsg.usuario_id]) {
-          try {
-            // Consultar a Supabase el nombre del usuario
-            const { data: user, error } = await supabaseClient
-              .from('usuarios')
-              .select('username')
-              .eq('id', newMsg.usuario_id)
-              .single();
+          if (!usersCache[newMsg.usuario_id]) {
+            try {
+              const { data: user, error } = await supabaseClient
+                .from('usuarios')
+                .select('username')
+                .eq('id', newMsg.usuario_id)
+                .single();
 
-            if (!error && user) {
-              usersCache[newMsg.usuario_id] = user.username;
+              if (!error && user) {
+                usersCache[newMsg.usuario_id] = user.username;
+              }
+            } catch (e) {
+              console.error("Error al obtener nombre de usuario en tiempo real:", e);
             }
-          } catch (e) {
-            console.error("Error al obtener nombre de usuario en tiempo real:", e);
+          }
+
+          appendMessageToDOM(newMsg);
+          scrollToBottom();
+        } else if (payload.eventType === 'UPDATE') {
+          const updatedMsg = payload.new;
+          const msgEl = document.getElementById(`msg-${updatedMsg.id}`);
+          if (msgEl) {
+            const decrypted = decryptText(updatedMsg.contenido, secretKey);
+            let isJson = false;
+            let p = null;
+            try {
+              p = JSON.parse(decrypted);
+              if (p && p.type === 'view-once-image-destroyed') {
+                isJson = true;
+              }
+            } catch (e) {}
+
+            if (isJson) {
+              const bubble = msgEl.querySelector('.message-bubble');
+              if (bubble) {
+                bubble.classList.add('destroyed-photo-bubble');
+                const textEl = bubble.querySelector('.temp-image-text');
+                if (textEl) {
+                  textEl.innerHTML = `
+                    <i data-lucide="eye-off" class="temp-image-icon"></i>
+                    <span>🚫 Foto abierta y destruida</span>
+                  `;
+                }
+                const subEl = bubble.querySelector('.temp-image-sub');
+                if (subEl) subEl.remove();
+                lucide.createIcons();
+              }
+            }
+          }
+        } else if (payload.eventType === 'DELETE') {
+          const deletedMsgId = payload.old.id;
+          const msgEl = document.getElementById(`msg-${deletedMsgId}`);
+          if (msgEl) {
+            msgEl.remove();
           }
         }
-
-        // Pintar en el DOM y scroll
-        appendMessageToDOM(newMsg);
-        scrollToBottom();
       }
     )
     .subscribe();
@@ -432,27 +668,45 @@ messageInput.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') sendMessage();
 });
 
-// Cerrar sesión
+// Eventos de Imagen
+btnAttach.addEventListener('click', () => imageInput.click());
+imageInput.addEventListener('change', handleImageUpload);
+
+// Cerrar visor de imagen
+btnCloseImageModal.addEventListener('click', () => {
+  imageModal.classList.remove('active');
+  modalImageView.src = '';
+});
+
+// Cerrar sesión (abrir modal custom)
 btnLogout.addEventListener('click', () => {
-  if (confirm("¿Seguro que quieres salir del chat?")) {
-    if (messageSubscription) {
-      supabaseClient.removeChannel(messageSubscription);
-      messageSubscription = null;
-    }
-    currentUser = null;
-    secretKey = '';
-    localStorage.removeItem('cryptochat_user');
-    localStorage.removeItem('cryptochat_key');
-    localStorage.removeItem('cryptochat_room_name');
-    
-    chatScreen.classList.remove('active');
-    loginScreen.classList.add('active');
-    
-    // Limpiar inputs
-    usernameInput.value = '';
-    roomInput.value = '';
-    secretKeyInput.value = '';
+  logoutConfirmModal.classList.add('active');
+});
+
+btnConfirmLogoutCancel.addEventListener('click', () => {
+  logoutConfirmModal.classList.remove('active');
+});
+
+btnConfirmLogoutOk.addEventListener('click', () => {
+  logoutConfirmModal.classList.remove('active');
+  
+  if (messageSubscription) {
+    supabaseClient.removeChannel(messageSubscription);
+    messageSubscription = null;
   }
+  currentUser = null;
+  secretKey = '';
+  localStorage.removeItem('cryptochat_user');
+  localStorage.removeItem('cryptochat_key');
+  localStorage.removeItem('cryptochat_room_name');
+  
+  chatScreen.classList.remove('active');
+  loginScreen.classList.add('active');
+  
+  // Limpiar inputs
+  usernameInput.value = '';
+  roomInput.value = '';
+  secretKeyInput.value = '';
 });
 
 // Modal de clave activa
@@ -491,7 +745,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Esperar a que se conecte con Supabase
   const isConnected = await initSupabase();
   if (!isConnected) {
-    alert("No se pudo conectar con la base de datos. Verifica que el servidor esté corriendo y el archivo .env esté configurado.");
+    customAlert("No se pudo conectar con la base de datos. Verifica que el servidor esté corriendo y el archivo .env esté configurado.");
     return;
   }
   
