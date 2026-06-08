@@ -6,13 +6,15 @@
 // El cliente se inicializa dinámicamente desde el backend para mayor seguridad
 let supabaseClient = null;
 
+function getBackendUrl() {
+  return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? ''
+    : 'https://ejerciciochat.onrender.com';
+}
+
 async function initSupabase() {
   try {
-    // Configuración dinámica del backend: usa local en dev, o tu URL de Render en producción
-    const backendUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? ''
-      : 'https://ejerciciochat.onrender.com'; // <-- URL real del servicio backend en Render
-    
+    const backendUrl = getBackendUrl();
     const response = await fetch(`${backendUrl}/api/config`);
     if (!response.ok) throw new Error("No se pudo obtener la configuración del servidor.");
     const config = await response.json();
@@ -130,16 +132,30 @@ async function handleLogin() {
   }
 
   const cleanUsername = usernameVal.toLowerCase();
-  const cleanRoom = roomVal.toLowerCase();
-
-  // Validación exclusiva solicitada (ocultando detalles del error)
-  if ((cleanUsername !== 'a' && cleanUsername !== 'b') || cleanRoom !== 'tonyina' || keyVal !== 'tonyina') {
-    alert("Error en el servidor.");
-    return;
-  }
 
   // Desactivar botón y mostrar estado de carga
   btnEnter.disabled = true;
+  btnEnter.innerHTML = `<span>Validando credenciales...</span><div class="loader" style="margin:0; width:16px; height:16px; border-width:2px;"></div>`;
+
+  try {
+    const backendUrl = getBackendUrl();
+    const loginResponse = await fetch(`${backendUrl}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: cleanUsername, room: roomVal, key: keyVal })
+    });
+
+    if (!loginResponse.ok) {
+      alert("Error en el servidor.");
+      return;
+    }
+  } catch (err) {
+    console.error("Error de red al validar sesión:", err);
+    alert("Error al conectar con el servidor.");
+    return;
+  }
+
+  // Mostrar estado de carga para buscar el usuario en la BD
   btnEnter.innerHTML = `<span>Buscando usuario...</span><div class="loader" style="margin:0; width:16px; height:16px; border-width:2px;"></div>`;
 
   try {
@@ -492,27 +508,39 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
     
     const cleanUser = parsedUser && parsedUser.username ? parsedUser.username.toLowerCase() : '';
-    const cleanRoom = savedRoomName.toLowerCase();
     
-    if ((cleanUser === 'a' || cleanUser === 'b') && cleanRoom === 'tonyina' && savedKey === 'tonyina') {
-      currentUser = parsedUser;
-      secretKey = savedKey;
-      currentRoomName = savedRoomName;
-      currentRoomId = CryptoJS.SHA256(currentRoomName.toLowerCase()).toString();
-      usersCache[currentUser.id] = currentUser.username;
-      
-      currentUserDisplay.textContent = `@${currentUser.username}`;
-      currentRoomDisplay.textContent = currentRoomName;
-      loginScreen.classList.remove('active');
-      chatScreen.classList.add('active');
-      
-      loadMessages();
-      setupRealtimeSubscription();
-    } else {
-      // Limpiar localStorage si tenía datos antiguos no permitidos
-      localStorage.removeItem('cryptochat_user');
-      localStorage.removeItem('cryptochat_key');
-      localStorage.removeItem('cryptochat_room_name');
+    if (cleanUser && savedKey && savedRoomName) {
+      try {
+        const backendUrl = getBackendUrl();
+        const loginResponse = await fetch(`${backendUrl}/api/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: cleanUser, room: savedRoomName, key: savedKey })
+        });
+
+        if (loginResponse.ok) {
+          currentUser = parsedUser;
+          secretKey = savedKey;
+          currentRoomName = savedRoomName;
+          currentRoomId = CryptoJS.SHA256(currentRoomName.toLowerCase()).toString();
+          usersCache[currentUser.id] = currentUser.username;
+          
+          currentUserDisplay.textContent = `@${currentUser.username}`;
+          currentRoomDisplay.textContent = currentRoomName;
+          loginScreen.classList.remove('active');
+          chatScreen.classList.add('active');
+          
+          loadMessages();
+          setupRealtimeSubscription();
+        } else {
+          // Limpiar localStorage si tenía datos antiguos no permitidos
+          localStorage.removeItem('cryptochat_user');
+          localStorage.removeItem('cryptochat_key');
+          localStorage.removeItem('cryptochat_room_name');
+        }
+      } catch (err) {
+        console.error("Error al validar auto-login con el servidor:", err);
+      }
     }
   }
 });
